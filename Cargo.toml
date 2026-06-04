@@ -1,0 +1,46 @@
+[workspace]
+resolver = "2"
+members = [
+    "crates/blaze-core",
+    "crates/blaze-py",
+]
+
+[workspace.package]
+version = "0.2.0"
+edition = "2021"
+authors = ["Blaze Team"]
+license = "MIT"
+repository = "https://example.com/blaze"  # placeholder
+rust-version = "1.80"
+
+[workspace.dependencies]
+# Core linear algebra: pure Rust, complex support, no external LAPACK for sovereignty
+faer = { version = "0.24" }
+
+# N-dimensional arrays for TT cores (match Python ndarray semantics closely)
+ndarray = { version = "0.16", features = ["approx"] }
+
+# Complex numbers (use faer's Complex for faer interop, but expose num_complex too if needed)
+num-complex = { version = "0.4", features = ["serde"] }
+
+# .npy support for CLI (real + complex128). 0.9 matches ndarray 0.16 (0.4 did NOT
+# — it pulls ndarray ~0.13, causing two ndarray versions + type clashes; that is why
+# the CLI npy could not be wired before).
+ndarray-npy = { version = "0.9", features = ["num-complex-0_4"] }
+nalgebra = { version = "0.33", features = ["std"] }
+byteorder = "1.5"
+
+# CLI
+clap = { version = "4", features = ["derive"] }
+
+# Serialization for .blz (simple for now; can use bincode later)
+# For header we use manual write for exact control + endian
+
+# Testing / approx
+approx = "0.5"
+
+# Python bindings
+pyo3 = { version = "0.23", features = ["extension-module", "num-complex"] }
+
+# For the py crate to depend on core
+blaze-core = { path = "crates/blaze-core", version = "0.2.0" }

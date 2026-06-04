@@ -1,0 +1,40 @@
+[package]
+name = "blaze-core"
+version.workspace = true
+edition.workspace = true
+authors.workspace = true
+license.workspace = true
+description = "Blaze Phase 2: Rust core for TT/MPS compression (faer + ndarray, CPU only). Mirrors Python API 1:1. No general compressor claims."
+readme = "../../README.md"
+rust-version.workspace = true
+
+[lib]
+name = "blaze_core"
+path = "src/lib.rs"
+
+[[bin]]
+name = "blaze"
+path = "src/bin/blaze.rs"
+
+[features]
+default = []
+# Enable for Python extension consumers if needed
+python = []
+# GPU SVD offload via cuSOLVER (build.rs compiles cuda/blaze_svd.cu with nvcc).
+# Build from an x64 Native Tools / vcvars prompt. CPU path (nalgebra) is the default.
+cuda = []
+
+[dependencies]
+faer.workspace = true
+ndarray.workspace = true
+num-complex.workspace = true
+ndarray-npy.workspace = true
+nalgebra.workspace = true
+byteorder.workspace = true
+clap.workspace = true
+approx.workspace = true
+
+[dev-dependencies]
+approx.workspace = true
+rand = "0.8"
+ndarray-rand = "0.15"

@@ -1,0 +1,22 @@
+[package]
+name = "blaze-py"
+version.workspace = true
+edition.workspace = true
+authors.workspace = true
+license.workspace = true
+description = "PyO3 bindings for blaze-core (maturin cdylib)"
+publish = false
+
+[lib]
+name = "_rust"
+crate-type = ["cdylib"]
+path = "src/lib.rs"
+
+[dependencies]
+pyo3.workspace = true
+blaze-core.workspace = true
+ndarray.workspace = true
+num-complex.workspace = true
+
+[features]
+# extension-module is activated by pyo3 in workspace dep

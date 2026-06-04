@@ -1,0 +1,51 @@
+[build-system]
+requires = ["setuptools>=64", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "blaze"
+version = "0.1.0"
+description = "High-dimensional tensor compression via Tensor Train / MPS, with CUDA acceleration and Cirq integration (Fase 1: pure Python prototype)"
+readme = "README.md"
+requires-python = ">=3.10"
+license = {text = "MIT"}
+authors = [{name = "Blaze Team"}]
+dependencies = [
+    "numpy>=1.24",
+    "scipy>=1.10",
+]
+
+[project.optional-dependencies]
+quantum = [
+    "cirq-core>=1.3; python_version >= '3.10'",
+]
+dev = [
+    "pytest>=7.0",
+    "ruff>=0.4",
+]
+
+[project.scripts]
+# CLI will come in later phases; placeholder for Fase 1
+blaze = "blaze.cli:main"
+
+[tool.setuptools.packages.find]
+where = ["python"]
+include = ["blaze*"]
+
+[tool.maturin]
+python-source = "python"
+module-name = "blaze._rust"
+bindings = "pyo3"
+manifest-path = "crates/blaze-py/Cargo.toml"
+
+[tool.setuptools.package-data]
+blaze = ["py.typed"]
+
+[tool.ruff]
+line-length = 100
+target-version = "py310"
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+python_files = ["test_*.py"]
+addopts = "-q"

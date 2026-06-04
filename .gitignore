@@ -1,0 +1,45 @@
+# Rust / C++ / CUDA build artifacts
+target/
+**/target/
+build/
+*.exe
+*.dll
+*.so
+*.dylib
+*.pdb
+
+# Python
+__pycache__/
+*.egg-info/
+*.py[cod]
+.venv/
+venv/
+.pytest_cache/
+
+# Data & build artifacts (keep local, never commit)
+data/
+*.npy
+*.npz
+*.parquet
+*.bin
+*.blaze
+*.blz
+*.png
+
+# CUDA / linker build artifacts (nvcc -lib, MSVC import libs), wheels
+*.lib
+*.exp
+*.obj
+*.whl
+
+# Allow small generated artifacts for Fase 1 examples/demos (committed only if tiny & illustrative)
+!python/blaze/examples/output/.gitkeep
+!examples/output/.gitkeep
+# Large generated data still ignored even here
+python/blaze/examples/output/large/
+examples/output/large/
+
+# Private (never publish)
+CLAUDE.md
+.claude/
+.gemini/
