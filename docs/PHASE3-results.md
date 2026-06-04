@@ -48,6 +48,19 @@ cut that transfer and widen the win — that is the next optimization, not done 
 `[1,3,3,1]`. This is the highest-value GPU piece: large quantum statevectors → MPS,
 where the SVDs are genuinely large and the GPU pays off most.
 
+**Timing (release, honest)** — c64 wins by *more* than f64 (complex SVD is ~4× the
+flops, so the GPU's compute advantage dominates the transfer overhead more):
+
+| 4D complex (n⁴) | elements | CPU release (ms) | GPU (ms) | speedup | winner |
+|-----------------|----------|------------------|----------|---------|--------|
+| n=8  | 4 096     | 1.6   | 20.4  | 0.08× | CPU (transfer-bound) |
+| n=16 | 65 536    | 32.8  | 69.5  | 0.47× | CPU |
+| n=24 | 331 776   | 229.6 | 76.4  | 3.01× | **GPU** ← crossover |
+| n=32 | 1 048 576 | 844.7 | 221.7 | **3.81×** | **GPU** (= a 20-qubit statevector) |
+
+The quantum path gets **~3.8× at a 20-qubit statevector** — more than the f64 2.9×, as
+expected. Same honest crossover (~n≈24); below it the GPU loses (`[KNOWN_LIMIT]`).
+
 ## Scope (unchanged, honest)
 This accelerates the **validated niche** — large TT-native / quantum-state tensors,
 where TT is the right tool *and* the matrices are big enough for the GPU to pay off.

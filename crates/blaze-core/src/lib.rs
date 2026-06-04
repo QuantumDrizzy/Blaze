@@ -656,6 +656,41 @@ mod cuda_parity {
         }
         println!("  (GPU wins above the crossover; below it, host<->device transfer dominates.)");
     }
+
+    /// Honest CPU-vs-GPU timing for the COMPLEX (quantum) path. n=32 -> 32^4 = 2^20 =
+    /// a 20-qubit statevector reshaped to an MPS. Complex SVD is ~4x the flops of real,
+    /// so the GPU should win by more than the f64 case.
+    ///   cargo test -p blaze-core --release --features cuda cpu_vs_cuda_timing_c64 -- --ignored --nocapture
+    #[test]
+    #[ignore]
+    fn cpu_vs_cuda_timing_c64() {
+        use std::time::Instant;
+        fn make(n: usize) -> ArrayD<Complex64> {
+            let len = n * n * n * n;
+            let mut d = vec![Complex64::new(0.0, 0.0); len];
+            for (i, v) in d.iter_mut().enumerate() {
+                let p = i as f64;
+                *v = Complex64::new((p * 0.001).sin(), (p * 0.0017).cos());
+            }
+            ArrayD::from_shape_vec(vec![n, n, n, n], d).unwrap()
+        }
+        let _ = compress_c64_cuda(&make(4), Some(4), 1e-6, false); // warm up the CUDA context
+
+        println!("\n  c64 4D (n^4)      CPU(ms)    GPU(ms)   speedup   winner");
+        for &n in &[8usize, 16, 24, 32] {
+            let t = make(n);
+            let a = Instant::now();
+            let _ = compress_c64(&t, Some(16), 1e-6, false);
+            let cpu_ms = a.elapsed().as_secs_f64() * 1e3;
+            let b = Instant::now();
+            let _ = compress_c64_cuda(&t, Some(16), 1e-6, false);
+            let gpu_ms = b.elapsed().as_secs_f64() * 1e3;
+            let win = if gpu_ms < cpu_ms { "GPU" } else { "CPU (transfer-bound)" };
+            println!("  n={n:<2} ({:>8} el)  {cpu_ms:8.1}  {gpu_ms:8.1}   {:6.2}x   {win}",
+                     t.len(), cpu_ms / gpu_ms);
+        }
+        println!("  (n=32 = 32^4 = 2^20 = a 20-qubit statevector reshaped to MPS.)");
+    }
 }
 
 #[cfg(test)]
