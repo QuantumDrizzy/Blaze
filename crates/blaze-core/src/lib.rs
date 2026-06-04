@@ -220,6 +220,7 @@ impl<T> TT<T> {
 
 /// SVD backend signature: 2D matrix -> (U [m×k], S [k], Vh [k×n]) economy.
 type SvdF64 = fn(&ArrayD<f64>) -> (ArrayD<f64>, Vec<f64>, ArrayD<f64>);
+type SvdC64 = fn(&ArrayD<Complex64>) -> (ArrayD<Complex64>, Vec<f64>, ArrayD<Complex64>);
 
 #[cfg(feature = "cuda")]
 extern "C" {
@@ -245,6 +246,30 @@ fn svd_via_cuda_f64(mat: &ArrayD<f64>) -> (ArrayD<f64>, Vec<f64>, ArrayD<f64>) {
     (u_nd, s, vt_nd)
 }
 
+#[cfg(feature = "cuda")]
+extern "C" {
+    fn blaze_cuda_svd_c64(a: *const Complex64, m: i32, n: i32, u: *mut Complex64, s: *mut f64, vt: *mut Complex64) -> i32;
+}
+
+/// GPU economy SVD via cuSOLVER (Complex128 — the quantum-state path). Drop-in for svd_via_na_c64.
+#[cfg(feature = "cuda")]
+fn svd_via_cuda_c64(mat: &ArrayD<Complex64>) -> (ArrayD<Complex64>, Vec<f64>, ArrayD<Complex64>) {
+    let m = mat.shape()[0];
+    let n = mat.shape()[1];
+    let k = m.min(n);
+    let a: Vec<Complex64> = mat.iter().copied().collect(); // row-major (the C-ABI contract)
+    let mut u = vec![Complex64::new(0.0, 0.0); m * k];
+    let mut s = vec![0.0f64; k];
+    let mut vt = vec![Complex64::new(0.0, 0.0); k * n];
+    let rc = unsafe {
+        blaze_cuda_svd_c64(a.as_ptr(), m as i32, n as i32, u.as_mut_ptr(), s.as_mut_ptr(), vt.as_mut_ptr())
+    };
+    assert_eq!(rc, 0, "blaze_cuda_svd_c64 failed (rc={rc})");
+    let u_nd = ArrayD::from_shape_vec(vec![m, k], u).unwrap();
+    let vt_nd = ArrayD::from_shape_vec(vec![k, n], vt).unwrap();
+    (u_nd, s, vt_nd)
+}
+
 /// Exact port of Python tt_svd logic (energy budget + max_rank cap).
 /// Returns (cores, full_singular_values_per_unfolding).
 ///
@@ -264,8 +289,9 @@ pub fn tt_svd_c64(
     max_rank: Option<usize>,
     rel_tol: f64,
     verbose: bool,
+    svd: SvdC64,
 ) -> (Vec<Array3<Complex64>>, Vec<Vec<f64>>) {
-    tt_svd_impl_c64(tensor, max_rank, rel_tol, verbose)
+    tt_svd_impl_c64(tensor, max_rank, rel_tol, verbose, svd)
 }
 
 fn tt_svd_impl_f64(
@@ -345,6 +371,7 @@ fn tt_svd_impl_c64(
     max_rank: Option<usize>,
     rel_tol: f64,
     verbose: bool,
+    svd: SvdC64,
 ) -> (Vec<Array3<Complex64>>, Vec<Vec<f64>>) {
     let shape: Vec<usize> = tensor.shape().to_vec();
     let ndim = shape.len();
@@ -365,7 +392,7 @@ fn tt_svd_impl_c64(
         let d_i = shape[i];
         let mat_shape = if i == 0 { (d_i, remaining.len() / d_i) } else { (r_prev * d_i, remaining.len() / (r_prev * d_i)) };
         let mat_2d = remaining.clone().into_shape_with_order(mat_shape).unwrap().into_dyn();
-        let (u, s, vh) = svd_via_na_c64(&mat_2d);
+        let (u, s, vh) = svd(&mat_2d);
         singular_values.push(s.clone());
 
         let s2: Vec<f64> = s.iter().map(|&x| x*x).collect();
@@ -508,7 +535,19 @@ pub fn compress_c64(
     rel_tol: f64,
     verbose: bool,
 ) -> TT<Complex64> {
-    let (cores, sigs) = tt_svd_c64(tensor, max_rank, rel_tol, verbose);
+    let (cores, sigs) = tt_svd_c64(tensor, max_rank, rel_tol, verbose, svd_via_na_c64);
+    TT { cores, shape: tensor.shape().to_vec(), singular_values: sigs }
+}
+
+/// `compress_c64` with the SVD offloaded to the GPU (cuSOLVER Zgesvd) — the quantum path.
+#[cfg(feature = "cuda")]
+pub fn compress_c64_cuda(
+    tensor: &ArrayD<Complex64>,
+    max_rank: Option<usize>,
+    rel_tol: f64,
+    verbose: bool,
+) -> TT<Complex64> {
+    let (cores, sigs) = tt_svd_c64(tensor, max_rank, rel_tol, verbose, svd_via_cuda_c64);
     TT { cores, shape: tensor.shape().to_vec(), singular_values: sigs }
 }
 
@@ -556,6 +595,32 @@ mod cuda_parity {
         assert_eq!(cpu.ranks(), gpu.ranks(), "ranks must match CPU vs GPU");
         assert!((ecpu - egpu).abs() < 1e-6, "rel_error mismatch (cpu={ecpu}, gpu={egpu})");
         println!("CUDA_PARITY_OK");
+    }
+
+    #[test]
+    fn cpu_vs_cuda_parity_c64() {
+        // Structured 4x4x4 complex tensor (quantum-state-like, low rank).
+        let n = 4usize;
+        let mut data = vec![Complex64::new(0.0, 0.0); n * n * n];
+        for i in 0..n {
+            for j in 0..n {
+                for k in 0..n {
+                    let p = (i + 2 * j + 3 * k) as f64;
+                    data[(i * n + j) * n + k] =
+                        Complex64::new((0.3 * p).cos(), (0.2 * p).sin()) * (-(0.1 * p)).exp();
+                }
+            }
+        }
+        let t = ArrayD::from_shape_vec(vec![n, n, n], data).unwrap();
+        let cpu = compress_c64(&t, Some(3), 1e-6, false);
+        let gpu = compress_c64_cuda(&t, Some(3), 1e-6, false);
+        let ecpu = rel_error_c64(&cpu, &t);
+        let egpu = rel_error_c64(&gpu, &t);
+        println!("C64 CPU rel_err={ecpu:.6e} ranks={:?}", cpu.ranks());
+        println!("C64 GPU rel_err={egpu:.6e} ranks={:?}", gpu.ranks());
+        assert_eq!(cpu.ranks(), gpu.ranks(), "c64 ranks must match CPU vs GPU");
+        assert!((ecpu - egpu).abs() < 1e-6, "c64 rel_error mismatch (cpu={ecpu}, gpu={egpu})");
+        println!("CUDA_PARITY_C64_OK");
     }
 
     /// Honest CPU-vs-GPU timing across sizes. Shows the crossover: GPU loses on small

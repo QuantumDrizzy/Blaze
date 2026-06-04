@@ -17,6 +17,7 @@
 #include <algorithm>
 #include <cuda_runtime.h>
 #include <cusolverDn.h>
+#include <cuComplex.h>
 
 extern "C" int blaze_cuda_svd_f64(const double* A, int m, int n, double* U, double* S, double* Vt) {
     const int k = std::min(m, n);
@@ -87,6 +88,79 @@ extern "C" int blaze_cuda_svd_f64(const double* A, int m, int n, double* U, doub
     return 0;
 }
 
+// Complex128 (the quantum-state path). Same layout handling as f64, but the wide
+// case uses the CONJUGATE-transpose A^H (the SVD is A = U S V^H), so the mapping
+// back conjugates. The self-test verifies tall + wide complex reconstructions.
+extern "C" int blaze_cuda_svd_c64(const cuDoubleComplex* A, int m, int n,
+                                  cuDoubleComplex* U, double* S, cuDoubleComplex* Vt) {
+    const int k = std::min(m, n);
+    const bool wide = (m < n);
+    const int R = wide ? n : m;
+    const int C = wide ? m : n;
+    std::vector<cuDoubleComplex> M((size_t)R * C);
+    if (!wide) {
+        for (int i = 0; i < m; ++i)
+            for (int j = 0; j < n; ++j)
+                M[(size_t)i + (size_t)j * m] = A[(size_t)i * n + j];      // plain transpose
+    } else {
+        for (int a = 0; a < n; ++a)
+            for (int b = 0; b < m; ++b)
+                M[(size_t)a + (size_t)b * n] = cuConj(A[(size_t)b * n + a]); // A^H
+    }
+
+    cusolverDnHandle_t h;
+    if (cusolverDnCreate(&h) != CUSOLVER_STATUS_SUCCESS) return 10;
+
+    cuDoubleComplex *dM = nullptr, *dU = nullptr, *dVt = nullptr, *dW = nullptr;
+    double *dS = nullptr, *dRwork = nullptr;
+    int* dInfo = nullptr;
+    cudaMalloc(&dM, sizeof(cuDoubleComplex) * (size_t)R * C);
+    cudaMalloc(&dU, sizeof(cuDoubleComplex) * (size_t)R * C);
+    cudaMalloc(&dS, sizeof(double) * C);
+    cudaMalloc(&dVt, sizeof(cuDoubleComplex) * (size_t)C * C);
+    cudaMalloc(&dRwork, sizeof(double) * ((size_t)5 * C + 1));
+    cudaMalloc(&dInfo, sizeof(int));
+    cudaMemcpy(dM, M.data(), sizeof(cuDoubleComplex) * (size_t)R * C, cudaMemcpyHostToDevice);
+
+    int lwork = 0;
+    cusolverDnZgesvd_bufferSize(h, R, C, &lwork);
+    cudaMalloc(&dW, sizeof(cuDoubleComplex) * lwork);
+
+    cusolverStatus_t st = cusolverDnZgesvd(h, 'S', 'S', R, C, dM, R, dS, dU, R, dVt, C,
+                                           dW, lwork, dRwork, dInfo);
+    cudaDeviceSynchronize();
+    if (st != CUSOLVER_STATUS_SUCCESS) { cusolverDnDestroy(h); return 20 + (int)st; }
+
+    std::vector<cuDoubleComplex> Ucm((size_t)R * C), Vtcm((size_t)C * C);
+    std::vector<double> Sv(C);
+    cudaMemcpy(Ucm.data(), dU, sizeof(cuDoubleComplex) * (size_t)R * C, cudaMemcpyDeviceToHost);
+    cudaMemcpy(Sv.data(), dS, sizeof(double) * C, cudaMemcpyDeviceToHost);
+    cudaMemcpy(Vtcm.data(), dVt, sizeof(cuDoubleComplex) * (size_t)C * C, cudaMemcpyDeviceToHost);
+
+    for (int i = 0; i < k; ++i) S[i] = Sv[i];
+
+    if (!wide) {
+        for (int i = 0; i < m; ++i)
+            for (int c = 0; c < k; ++c)
+                U[(size_t)i * k + c] = Ucm[(size_t)i + (size_t)c * m];
+        for (int c = 0; c < k; ++c)
+            for (int j = 0; j < n; ++j)
+                Vt[(size_t)c * n + j] = Vtcm[(size_t)c + (size_t)j * C];
+    } else {
+        // A = Vtcm^H S Ucm^H  => U_A(i,c)=conj(Vtcm(c,i)), Vh_A(c,j)=conj(Ucm(j,c)).
+        for (int i = 0; i < m; ++i)
+            for (int c = 0; c < k; ++c)
+                U[(size_t)i * k + c] = cuConj(Vtcm[(size_t)c + (size_t)i * C]);
+        for (int c = 0; c < k; ++c)
+            for (int j = 0; j < n; ++j)
+                Vt[(size_t)c * n + j] = cuConj(Ucm[(size_t)j + (size_t)c * R]);
+    }
+
+    cudaFree(dM); cudaFree(dU); cudaFree(dS); cudaFree(dVt); cudaFree(dW); cudaFree(dRwork); cudaFree(dInfo);
+    cusolverDnDestroy(h);
+    return 0;
+}
+
 #ifdef BLAZE_SVD_SELFTEST
 #include <cstdio>
 #include <cmath>
@@ -106,8 +180,28 @@ static double check(int m, int n, const std::vector<double>& A) {
         }
     return std::sqrt(num) / std::sqrt(den);
 }
+static double check_c64(int m, int n, const std::vector<cuDoubleComplex>& A) {
+    const int k = std::min(m, n);
+    std::vector<cuDoubleComplex> U((size_t)m * k), Vt((size_t)k * n);
+    std::vector<double> S(k);
+    int rc = blaze_cuda_svd_c64(A.data(), m, n, U.data(), S.data(), Vt.data());
+    if (rc != 0) { printf("  c64 rc=%d\n", rc); return 1e9; }
+    double num = 0, den = 0;
+    for (int i = 0; i < m; ++i)
+        for (int j = 0; j < n; ++j) {
+            cuDoubleComplex v = make_cuDoubleComplex(0, 0);
+            for (int c = 0; c < k; ++c) {
+                cuDoubleComplex us = cuCmul(U[(size_t)i*k+c], make_cuDoubleComplex(S[c], 0));
+                v = cuCadd(v, cuCmul(us, Vt[(size_t)c*n+j]));
+            }
+            cuDoubleComplex a = A[(size_t)i*n+j];
+            cuDoubleComplex d = cuCsub(v, a);
+            num += cuCreal(d)*cuCreal(d) + cuCimag(d)*cuCimag(d);
+            den += cuCreal(a)*cuCreal(a) + cuCimag(a)*cuCimag(a);
+        }
+    return std::sqrt(num) / std::sqrt(den);
+}
 int main() {
-    // tall 4x2 and wide 2x4, arbitrary values
     std::vector<double> tall = {1,2, 3,4, 5,6, 7,8};            // 4x2 row-major
     std::vector<double> wide = {1,2,3,4, 5,6,7,8};              // 2x4 row-major
     double et = check(4, 2, tall);
@@ -115,7 +209,21 @@ int main() {
     printf("TALL_4x2 recon_rel_err=%.3e\n", et);
     printf("WIDE_2x4 recon_rel_err=%.3e\n", ew);
     bool ok = et < 1e-10 && ew < 1e-10;
-    printf(ok ? "SVD_LAYOUT_OK\n" : "SVD_LAYOUT_BAD\n");
-    return ok ? 0 : 1;
+
+    // complex: tall 3x2 and wide 2x3
+    using cc = cuDoubleComplex;
+    std::vector<cc> ct = {make_cuDoubleComplex(1,1), make_cuDoubleComplex(0,2),
+                          make_cuDoubleComplex(2,-1), make_cuDoubleComplex(1,0),
+                          make_cuDoubleComplex(0,3), make_cuDoubleComplex(-1,1)}; // 3x2
+    std::vector<cc> cw = {make_cuDoubleComplex(1,1), make_cuDoubleComplex(0,2), make_cuDoubleComplex(2,-1),
+                          make_cuDoubleComplex(1,0), make_cuDoubleComplex(0,3), make_cuDoubleComplex(-1,1)}; // 2x3
+    double ect = check_c64(3, 2, ct);
+    double ecw = check_c64(2, 3, cw);
+    printf("C64_TALL_3x2 recon_rel_err=%.3e\n", ect);
+    printf("C64_WIDE_2x3 recon_rel_err=%.3e\n", ecw);
+    bool okc = ect < 1e-10 && ecw < 1e-10;
+
+    printf((ok && okc) ? "SVD_LAYOUT_ALL_OK\n" : "SVD_LAYOUT_BAD\n");
+    return (ok && okc) ? 0 : 1;
 }
 #endif

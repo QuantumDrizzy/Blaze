@@ -40,6 +40,14 @@ kernel-launch overhead dominate small problems. `[KNOWN_LIMIT]`.
 A GPU-resident pipeline (keep tensors on the device across the successive SVDs) would
 cut that transfer and widen the win — that is the next optimization, not done here.
 
+## c64 — the quantum path (added 2026-06-04)
+`cusolverDnZgesvd` + the conjugate-transpose handling for the wide case, verified
+**standalone first** (complex tall 3×2 + wide 2×3 reconstruct to ~1e-16). Then
+`compress_c64_cuda` parity vs the CPU reference on a *non-trivial* truncation:
+**identical** — CPU `rel_err = 7.094302e-4` == GPU `7.094302e-4`, same ranks
+`[1,3,3,1]`. This is the highest-value GPU piece: large quantum statevectors → MPS,
+where the SVDs are genuinely large and the GPU pays off most.
+
 ## Scope (unchanged, honest)
 This accelerates the **validated niche** — large TT-native / quantum-state tensors,
 where TT is the right tool *and* the matrices are big enough for the GPU to pay off.
