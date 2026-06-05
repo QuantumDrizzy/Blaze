@@ -67,11 +67,12 @@ exploit).
 
 ## Scope and honest limits
 
-- **The CLI does not tensorize.** `blaze compress` reads the `.npy` shape as-is, so a
-  1-D statevector compresses to a trivial rank-1 TT (a no-op: `ranks=[1,1]`). The
-  reshape to `(2,)^n` is currently done before saving. The CLI needs a
-  `--qubits N` / `--reshape d0,d1,...` flag to be a real statevector tool.
-  `[KNOWN_LIMIT]` → Phase 1/6 follow-up.
+- **CLI tensorization — resolved (2026-06-05).** `blaze compress` now accepts
+  `--qubits N` (reshape a length-2ᴺ vector into `(2,)ᴺ` — the statevector case) or
+  `--reshape d0,d1,...` (general high-order reshape), validated and mutually
+  exclusive; no flag keeps the `.npy` shape (backward compatible). A 1-D statevector
+  now compresses correctly: `blaze compress state.npy --qubits 16 -o state.blz`.
+  Closes Phase 6.
 - Reconstruction is CPU and cheap (a chain of small contractions); no GPU needed.
 - This characterizes the lossy tradeoff; it is **not** a general-compressor claim
   (PHASE1/PHASE2 settled scope; see `SUBSTRATE-validation.md`).
@@ -82,9 +83,9 @@ exploit).
 # before/after fidelity + observable + the error<->rank knob (Python):
 python -m blaze.examples.reconstruction_knob
 
-# real on-disk roundtrip through the CLI (state already reshaped to (2,)^n):
+# real on-disk roundtrip through the CLI (--qubits tensorizes the 1-D statevector):
 cargo build --release -p blaze-core --bin blaze
-target/release/blaze compress state.tensor.npy --rel-tol 1e-6 -o state.blz
+target/release/blaze compress state.npy --qubits 16 --rel-tol 1e-6 -o state.blz
 target/release/blaze reconstruct state.blz -o state.recon.npy
 
 # the monotone-knob gate as a regression test:

@@ -2,7 +2,7 @@
 //! Parity with Python reference is the #1 gate. No general compressor claims.
 
 use clap::{Parser, Subcommand};
-use ndarray::ArrayD;
+use ndarray::{ArrayD, IxDyn};
 use num_complex::Complex64;
 use std::path::PathBuf;
 
@@ -27,6 +27,14 @@ enum Commands {
         max_rank: Option<usize>,
         #[arg(long, default_value_t = 1e-4)]
         rel_tol: f64,
+        /// Reshape a length-2^N vector into an N-mode (2,2,...,2) tensor before
+        /// compressing (the statevector / qubit case). Exclusive with --reshape.
+        #[arg(long)]
+        qubits: Option<usize>,
+        /// Reshape the flat data into this comma-separated shape before compressing,
+        /// e.g. --reshape 4,4,4,4. Exclusive with --qubits.
+        #[arg(long, value_delimiter = ',')]
+        reshape: Option<Vec<usize>>,
         #[arg(short, long)]
         output: PathBuf,
     },
@@ -44,13 +52,47 @@ enum Commands {
     Benchmark,
 }
 
+/// Reshape the ingested array into a high-order tensor before compression.
+/// `--qubits N` => (2,)^N (length must be 2^N); `--reshape d0,d1,...` => those dims
+/// (product must equal the element count). Neither => keep the .npy shape as-is.
+fn tensorize<T: Clone>(
+    arr: ArrayD<T>,
+    qubits: Option<usize>,
+    reshape: Option<Vec<usize>>,
+) -> Result<ArrayD<T>, String> {
+    let dims: Vec<usize> = match (qubits, reshape) {
+        (Some(_), Some(_)) => {
+            return Err("--qubits and --reshape are mutually exclusive".into())
+        }
+        (Some(q), None) => vec![2usize; q],
+        (None, Some(r)) => r,
+        (None, None) => return Ok(arr), // backward compatible: keep the .npy shape
+    };
+    let total: usize = dims.iter().product();
+    if total != arr.len() {
+        return Err(format!(
+            "reshape target {:?} = {} elements != {} in the array",
+            dims,
+            total,
+            arr.len()
+        ));
+    }
+    // Collect in logical (row-major) order so this is robust to the source layout.
+    let flat: Vec<T> = arr.iter().cloned().collect();
+    ArrayD::from_shape_vec(IxDyn(&dims), flat).map_err(|e| e.to_string())
+}
+
 fn main() {
     let cli = Cli::parse();
     match cli.command {
-        Commands::Compress { input, max_rank, rel_tol, output } => {
+        Commands::Compress { input, max_rank, rel_tol, qubits, reshape, output } => {
             // Read a REAL .npy file (f64 first, fall back to complex128). No demo tensor.
             let f64_try: Result<ArrayD<f64>, _> = ndarray_npy::read_npy(&input);
             if let Ok(arr) = f64_try {
+                let arr = tensorize(arr, qubits, reshape).unwrap_or_else(|e| {
+                    eprintln!("tensorize error: {e}");
+                    std::process::exit(1);
+                });
                 let tt = compress_f64(&arr, max_rank, rel_tol, false);
                 let err = rel_error_f64(&tt, &arr);
                 println!("f64 {:?}: TT ranks={:?} nparams={} rel_error={:.6e}",
@@ -61,6 +103,10 @@ fn main() {
                 let c64_try: Result<ArrayD<Complex64>, _> = ndarray_npy::read_npy(&input);
                 match c64_try {
                     Ok(arr) => {
+                        let arr = tensorize(arr, qubits, reshape).unwrap_or_else(|e| {
+                            eprintln!("tensorize error: {e}");
+                            std::process::exit(1);
+                        });
                         let tt = compress_c64(&arr, max_rank, rel_tol, false);
                         let err = rel_error_c64(&tt, &arr);
                         println!("c64 {:?}: TT ranks={:?} nparams={} rel_error={:.6e}",
@@ -106,5 +152,48 @@ fn main() {
             println!("Run: python -m blaze.examples.classical_benchmark  (and compare numbers)");
             println!("This Rust core is required to reproduce the same verdicts for parity gate.");
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn dummy(n: usize) -> ArrayD<f64> {
+        ArrayD::from_shape_vec(IxDyn(&[n]), (0..n).map(|i| i as f64).collect()).unwrap()
+    }
+
+    #[test]
+    fn qubits_reshapes_to_powers_of_two() {
+        let t = tensorize(dummy(16), Some(4), None).unwrap();
+        assert_eq!(t.shape(), &[2, 2, 2, 2]);
+        // row-major data is preserved through the reshape
+        assert_eq!(
+            t.iter().cloned().collect::<Vec<_>>(),
+            (0..16).map(|i| i as f64).collect::<Vec<_>>()
+        );
+    }
+
+    #[test]
+    fn reshape_uses_given_dims() {
+        let t = tensorize(dummy(16), None, Some(vec![4, 4])).unwrap();
+        assert_eq!(t.shape(), &[4, 4]);
+    }
+
+    #[test]
+    fn no_flag_keeps_shape() {
+        let t = tensorize(dummy(16), None, None).unwrap();
+        assert_eq!(t.shape(), &[16]);
+    }
+
+    #[test]
+    fn mutually_exclusive_errors() {
+        assert!(tensorize(dummy(16), Some(4), Some(vec![4, 4])).is_err());
+    }
+
+    #[test]
+    fn wrong_element_count_errors() {
+        assert!(tensorize(dummy(16), Some(3), None).is_err()); // 2^3 = 8 != 16
+        assert!(tensorize(dummy(16), None, Some(vec![5, 5])).is_err()); // 25 != 16
     }
 }
