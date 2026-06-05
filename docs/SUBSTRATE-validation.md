@@ -87,4 +87,4 @@ invariants — paramagnet compresses, Haar declines, ratio tracks entropy, TT ra
 
 - **GPU-relevant regime:** a large-χ state (2D lattice / time-evolved) run
   through the Rust/CUDA c64 path, where the GPU SVD actually pays off.
-- **Further ecosystem adapters:** HELIOS telemetry, THEIA activations.
+- **Further ecosystem adapters:** HELIOS telemetry, neural-network activations.

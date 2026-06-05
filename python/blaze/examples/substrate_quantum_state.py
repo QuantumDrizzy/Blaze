@@ -7,7 +7,7 @@ Blaze on a real SUBSTRATE-domain quantum many-body state.
 WHY THIS EXISTS
 ---------------
 The vision for Blaze: be the compression layer for the data the whole ecosystem
-produces (SUBSTRATE quantum states, HELIOS telemetry, THEIA activations, ...).
+produces (SUBSTRATE quantum states, HELIOS telemetry, model activations, ...).
 This is the first proof on REAL physics data, and it is deliberately HONEST
 about when Blaze wins and when it must decline.
 
