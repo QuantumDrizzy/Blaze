@@ -134,6 +134,118 @@ def sample_from_tt(tt: TT, n_samples: int = 1024, seed: int | None = None) -> np
     return samples
 
 
+# ---------------------------------------------------------------------------
+# Phase 5 — MPS -> circuit synthesis (sequential preparation, Schön et al. 2005)
+#
+# Given a TT/MPS, build the state-preparation circuit and VERIFY by simulation
+# that it reproduces the amplitudes on small n. Load-bearing + honest: there is
+# NO speedup / advantage claim. The honest research question is whether the prep
+# cost (ancilla width m = ceil(log2 chi), gate size 2*chi) tracks the bond
+# dimension chi -- i.e. the compressibility.
+# ---------------------------------------------------------------------------
+def _right_canonicalize(cores: list[np.ndarray]) -> list[np.ndarray]:
+    """Right-canonical TT cores (A_i A_i^H = I for i>=1), state norm folded into
+    and normalized out of the first core. Pure-numpy LQ sweep (right to left)."""
+    cores = [c.astype(np.complex128).copy() for c in cores]
+    n = len(cores)
+    for i in range(n - 1, 0, -1):
+        rL, d, rR = cores[i].shape
+        M = cores[i].reshape(rL, d * rR)
+        # LQ via QR of M^H:  M^H = Q R  =>  M = R^H Q^H = l q, with q rows orthonormal
+        Q, R = np.linalg.qr(M.conj().T)
+        q = Q.conj().T                       # (rL, d*rR), rows orthonormal
+        l = R.conj().T                       # (rL, rL), lower-triangular
+        cores[i] = q.reshape(rL, d, rR)
+        cores[i - 1] = np.tensordot(cores[i - 1], l, axes=([2], [0]))  # absorb l left
+    cores[0] = cores[0] / (np.linalg.norm(cores[0]) + 1e-30)
+    return cores
+
+
+def _isometry_to_unitary(M: np.ndarray, dim: int) -> np.ndarray:
+    """Complete an isometry M (dim x k, orthonormal columns) to a dim x dim unitary."""
+    from scipy.linalg import null_space
+
+    k = M.shape[1]
+    if k >= dim:
+        return M[:, :dim]
+    comp = null_space(M.conj().T)            # (dim, dim-k): orthonormal, perp to col(M)
+    return np.hstack([M, comp[:, : dim - k]])
+
+
+def mps_to_circuit(tt: TT) -> tuple[Any, list, list, dict]:
+    """Synthesize a state-preparation circuit from a TT/MPS of qubits (d=2).
+
+    Sequential construction: right-canonicalize, then for each site build a unitary
+    U_i on (physical qubit_i (MSB) ⊗ ancilla register) that maps the incoming bond
+    to |s> ⊗ outgoing bond. Applied left->right, the ancilla starts and (for r_N=1)
+    returns to |0...0>.
+
+    Returns (circuit, ancilla_qubits, physical_qubits, info).
+    """
+    _require_cirq()
+    cores = _right_canonicalize(tt.cores)
+    n = len(cores)
+    if not all(c.shape[1] == 2 for c in cores):
+        raise ValueError("mps_to_circuit requires qubit (d=2) cores")
+
+    max_bond = max(max(c.shape[0], c.shape[2]) for c in cores)
+    m = int(np.ceil(np.log2(max(max_bond, 1))))   # ancilla qubits (0 for product states)
+    chi = 2 ** m
+    d = 2
+
+    physical = list(cirq.LineQubit.range(n))
+    ancilla = list(cirq.LineQubit.range(n, n + m))
+    circuit = cirq.Circuit()
+
+    for i in range(n):
+        rL, _, rR = cores[i].shape
+        # column alpha (incoming bond) -> sum_{s,beta} A[alpha,s,beta] |s>|beta>
+        M = np.zeros((d * chi, rL), dtype=np.complex128)
+        for alpha in range(rL):
+            for s in range(d):
+                for beta in range(rR):
+                    M[s * chi + beta, alpha] = cores[i][alpha, s, beta]
+        U = _isometry_to_unitary(M, d * chi)
+        gate = cirq.MatrixGate(U, qid_shape=(2,) * (1 + m))
+        circuit.append(gate.on(physical[i], *ancilla))
+
+    info = {
+        "n_qubits": n,
+        "ancilla_qubits": m,
+        "max_bond": int(max_bond),
+        "chi_padded": chi,
+        "gate_dim": d * chi,
+        "n_gates": len(list(circuit.all_operations())),
+        "depth": len(circuit),
+    }
+    return circuit, ancilla, physical, info
+
+
+def verify_mps_circuit(tt: TT) -> dict:
+    """Build the prep circuit and check it reproduces the MPS amplitudes by simulation.
+
+    Returns info with 'fidelity' (|<psi_mps|psi_circuit>|^2) and 'ancilla_disentangle'
+    (norm left in the ancilla=|0> sector; ~1 means the ancilla returned to |0>).
+    """
+    _require_cirq()
+    circuit, ancilla, physical, info = mps_to_circuit(tt)
+    n, m = info["n_qubits"], info["ancilla_qubits"]
+    order = ancilla + physical                # ancilla most significant
+    sim = cirq.Simulator(dtype=np.complex128)
+    full = sim.simulate(circuit, qubit_order=order).final_state_vector
+    full = full.reshape(2 ** m, 2 ** n)       # (ancilla, physical)
+    anc0 = full[0]                            # project ancilla onto |0...0>
+    norm_anc0 = float(np.linalg.norm(anc0))
+    psi_circuit = anc0 / (norm_anc0 + 1e-30)
+
+    psi_mps = tt.reconstruct().ravel().astype(np.complex128)
+    psi_mps = psi_mps / (np.linalg.norm(psi_mps) + 1e-30)
+
+    fid = float(np.abs(np.vdot(psi_mps, psi_circuit)) ** 2)
+    info.update({"fidelity": fid, "ancilla_disentangle": norm_anc0})
+    return info
+
+
 def ghz_circuit(n_qubits: int) -> Any:
     """Exact GHZ state: |00...0> + |11...1> / sqrt(2). Bond dimension exactly 2."""
     _require_cirq()

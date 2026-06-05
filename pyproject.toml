@@ -19,6 +19,8 @@ dependencies = [
 quantum = [
     "cirq-core>=1.3; python_version >= '3.10'",
     "quimb>=1.7",
+    # cirq pulls pandas; pandas < 2.2.2 is ABI-incompatible with numpy >= 2.
+    "pandas>=2.2.2,<3; python_version >= '3.10'",
 ]
 dev = [
     "pytest>=7.0",
