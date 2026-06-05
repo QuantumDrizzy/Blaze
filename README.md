@@ -26,9 +26,8 @@ Architecture, build sequence, and the honesty contract:
 
 ## Status
 
-**Phase 0 — architecture defined.** Implementation pending. Co-developed: spec +
-review/benchmark-gate by Claude, generation by Grok. Nothing ships that fails the
-honesty gates in the ADR (right baselines, documented limits, no overclaim).
+**Phase 0 — architecture defined.** Implementation pending. Nothing ships that fails
+the honesty gates in the ADR (right baselines, documented limits, no overclaim).
 
 **Fase 1 (current)**: Pure-Python executable spec + golden tests + **the honest
 classical benchmark that decides claim (b)**.

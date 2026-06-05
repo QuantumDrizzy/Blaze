@@ -1,6 +1,6 @@
 # ADR-0001: Blaze — Tensor-Network compression of high-order data
 
-**Status:** Proposed (architecture spec — the contract Grok-generated code must satisfy)
+**Status:** Proposed (architecture spec — the contract the implementation must satisfy)
 **Date:** 2026-06-03
 **Deciders:** Antonio (QuantumDrizzy)
 
@@ -13,10 +13,8 @@ data**, using **Tensor-Train / Matrix-Product-State (TT/MPS) decomposition** as 
 compression mechanism, accelerated on the GPU, with a **load-bearing quantum layer**
 via Cirq. Target hardware: RTX 5060 Ti 16GB (sm_120) + Xeon 16c/32t.
 
-This ADR exists because Blaze will be **co-developed with an external code generator
-(Grok)**: the generated code must satisfy *this* architecture and — critically —
-*this honesty contract*. Claude orchestrates: architecture + review + benchmark-gate;
-Grok generates; nothing ships that fails the gates below.
+This ADR sets the **architecture and — critically — the honesty contract** that every
+phase of the implementation must satisfy. Nothing ships that fails the gates below.
 
 ### The honest framing (read this first — it is the whole point)
 TT/MPS is real, proven math (Oseledets 2011; quantum many-body physics). But it is
@@ -108,8 +106,7 @@ structured tensors, **scope down or pivot** (and say so). Let the numbers decide
 
 ---
 
-### Orchestrator note (Claude × Grok workflow)
-Grok generates against this ADR. Claude reviews each phase for: correctness,
-honesty (claims match measured numbers + the right baselines), ecosystem fit, and
-the gates above. Code that fails a gate does not advance. The benchmark discipline
-(`[KNOWN_LIMIT]`, honest baselines) is non-negotiable regardless of who wrote the line.
+### Review discipline
+Every phase is reviewed for correctness, honesty (claims match measured numbers + the
+right baselines), ecosystem fit, and the gates above. Code that fails a gate does not
+advance. The benchmark discipline (`[KNOWN_LIMIT]`, honest baselines) is non-negotiable.
