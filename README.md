@@ -30,32 +30,53 @@ Architecture, build sequence, and the honesty contract:
 `Rust` ingestion · CLI · persistence  ·  `C++/CUDA` TT kernels (hot core)  ·
 `Python` TT algorithms + benchmarks  ·  `Cirq` MPS↔circuit bridge
 
-## Status
+## Status — 8 phases complete (measured on RTX 5060 Ti, sm_120)
 
-**Phase 0 — architecture defined.** Implementation pending. Nothing ships that fails
-the honesty gates in the ADR (right baselines, documented limits, no overclaim).
+Every number below is from a reproducible gate in `tests/` and written up in `docs/`.
+Honest baselines, documented `[KNOWN_LIMIT]`s, no overclaim — the contract of
+[`docs/ADR-0001`](docs/ADR-0001-blaze-architecture.md) and
+[`docs/ADR-0002`](docs/ADR-0002-overlap-and-quantization.md).
 
-**Fase 1 (current)**: Pure-Python executable spec + golden tests + **the honest
-classical benchmark that decides claim (b)**.
+| # | Phase | Headline result (measured) | Detail |
+|--:|-------|----------------------------|--------|
+| 1 | Honest classical benchmark | TT beats a *fair* matrix SVD **only on TT-native data**; generic "structured"/high-entropy data does not compress (`[KNOWN_LIMIT]`, documented not hidden) | [PHASE2 §0](docs/PHASE2-rust-core-spec.md) |
+| 2 | Rust core `blaze-core` | 1:1 **parity** with the Python reference (CPU, faer/nalgebra); same ranks, `rel_error` within fp | [lib.rs](crates/blaze-core/src/lib.rs) |
+| 3 | CUDA SVD offload (cuSOLVER) | **~2.9× (f64) / ~3.8× (c64)** above the **n≈24 crossover**; below it the CPU wins (transfer/launch-bound — stated, not hidden) | [PHASE3](docs/PHASE3-results.md) |
+| 4 | Approximate reconstruction | **monotone** error↔rank dial; `.blz` roundtrip **75×** on a TFIM paramagnet at fidelity **1.000000000000** | [PHASE4](docs/PHASE4-results.md) |
+| 5 | MPS → circuit synthesis | sequential state-prep (Schön 2005) reproduces the MPS at **fidelity 1.0** (GHZ, product, physical TFIM); ancilla disentangles | [PHASE5](docs/PHASE5-results.md) |
+| 6 | Rust CLI + `.blz` persistence | `blaze compress` / `reconstruct` end-to-end, c64 verified on disk | [blz-format](docs/blz-format.md) |
+| 7 | Ops in compressed space | `inner`/`fidelity`/`distance`/`TTIndex` via the MPS zipper, **exact to 1e-15**, `O(nχ³)`; runs at **n=40** (dense 2⁴⁰ = 17.6 TB, impossible) in **3.6 ms**; TFIM search recovers the **quantum phase transition** | [PHASE7](docs/PHASE7-results.md) |
+| 8 | Core quantization | int8/4-bit codes on top of TT, error **composed** and measured; TFIM paramagnet **76.6× → 447×** at fidelity **0.99994** (int8), up to **705×** at 4-bit | [PHASE8](docs/PHASE8-results.md) |
 
-- `blaze.compress` + `TT` class with the final API shape (will be 1:1 with Rust).
-- Full Cirq integration (`blaze.cirq`) — GHZ, product states, shallow circuits as
-  regression gates (verifies impl correctness via physics).
-- `blaze.diagnostics.analyze_compressibility` + singular decay — makes
-  "is this data even TT-compressible?" measurable (effective ranks, entanglement-spectrum analogue).
-- `python/blaze/examples/classical_benchmark.py`: the real test (hyperspectral-like,
-  smooth fields, image stacks vs random + matrix-SVD baseline). This is what you run
-  to see if Blaze is real before writing one line of CUDA.
-- No custom .blz format yet (export cores as .npy or stay in-memory). dtypes: f32/f64/c128.
-  c32 deferred. cudarc planned for CUDA phase.
+**Flagship validation — real physics ([SUBSTRATE](docs/SUBSTRATE-validation.md)).**
+TFIM ground states (n=16) compress **19× (critical) → 77× (paramagnet)** losslessly to
+~1e-7, with four independent physics cross-checks (Page value, entropy monotonicity,
+TT rank = Schmidt rank, honest decline). The Haar-random control does **not** compress
+(**0.38×** — TT larger than dense); Blaze reports this instead of hiding it.
 
-Run the gate that matters:
+### Quickstart
 
 ```bash
-# after `pip install -e '.[quantum]'` (or without quantum for classical only)
-python -m blaze.examples.classical_benchmark
-python -m blaze.examples.quantum_compression   # needs cirq
+pip install -e '.[quantum]'                              # numpy/scipy + cirq/quimb
+pytest -q                                                # 33 gates
+
+python -m blaze.examples.substrate_quantum_state         # flagship: 19–77× on TFIM
+python -m blaze.examples.quantum_similarity_search       # Phase 7: search in compressed space
+python -m blaze.examples.quantize_sweep                  # Phase 8: TT × quantization, with fidelity
 ```
 
-See also: `blaze --bench`, `blaze --quantum` (after install).
+```python
+import numpy as np, blaze
+psi = np.zeros(2**12, dtype=complex); psi[0] = psi[-1] = 2**-0.5   # a GHZ state
+tt  = blaze.compress(psi.reshape((2,)*12), rel_tol=1e-10)          # TT/MPS
+q   = blaze.quantize_tt(tt, bits=8)                                # second-stage codes
+print(blaze.fidelity(tt, q.dequantize()))                         # ~1.0, no decompression
+```
+
+### Stack status
+
+`Python` reference — all 8 phases · `Rust` `blaze-core` — Phases 2–6 (parity-gated) ·
+`C++/CUDA` — Phase 3 SVD offload (cuSOLVER, f64+c64) · `Cirq` — Phase 5 bridge.
+Phase 7–8 are the NumPy reference; their Rust port + CUDA batched overlap are the
+documented next steps (ADR-0002).
 
