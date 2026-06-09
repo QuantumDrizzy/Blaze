@@ -12,6 +12,12 @@ from .tt import TT, compress, tt_svd
 from .diagnostics import analyze_compressibility, print_compressibility_report
 from .overlap import inner, norm, fidelity, distance, TTIndex
 from .quantize import QuantizedTT, quantize_tt
+from .quantized_search import (
+    inner_quantized,
+    fidelity_quantized,
+    distance_quantized,
+    QuantizedTTIndex,
+)
 
 __all__ = [
     "TT",
@@ -28,6 +34,11 @@ __all__ = [
     # Phase 8 — second-stage core quantization
     "QuantizedTT",
     "quantize_tt",
+    # Phase 9 — overlap & search over quantized cores (compressed + quantized)
+    "inner_quantized",
+    "fidelity_quantized",
+    "distance_quantized",
+    "QuantizedTTIndex",
 ]
 
 # cirq integration is optional (import blaze.cirq to trigger the check)
