@@ -54,6 +54,36 @@ TFIM ground states (n=16) compress **19× (critical) → 77× (paramagnet)** los
 TT rank = Schmidt rank, honest decline). The Haar-random control does **not** compress
 (**0.38×** — TT larger than dense); Blaze reports this instead of hiding it.
 
+## Benchmarks, visualized
+
+Every figure is regenerated **live** from real runs — `python docs/plots.py` (no
+hardcoded numbers: TFIM states via quimb, compressed / quantized / overlapped by
+blaze itself), on the RTX 5060 Ti (sm_120).
+
+**Ground-state fidelity reveals the quantum phase transition** — each overlap computed
+in compressed space (Phase 7), never decompressing a 2¹⁶ statevector. The ordered phase
+(`h<1`) is nearly orthogonal to the paramagnet (`h>1`); the sharp drop *is* the QPT:
+
+![TFIM ground-state fidelity matrix — the quantum phase transition](docs/img/fidelity_matrix_qpt.png)
+
+**Compression tracks physical entanglement.** Area-law TFIM ground states compress
+19–77×; the Haar volume-law control falls below break-even (0.38×) and Blaze declines
+instead of hiding it:
+
+![compression ratio vs entanglement entropy](docs/img/compression_vs_entanglement.png)
+
+**The lossy dial is monotone** (Phase 4, left) and **the second quantization stage buys
+ratio for a measured fidelity cost** (Phase 8, right):
+
+| | |
+|---|---|
+| ![error vs rank](docs/img/error_vs_rank.png) | ![quantization tradeoff](docs/img/quantization_tradeoff.png) |
+
+**Overlaps run on the TT directly** — `O(nχ³)`, not `O(2ⁿ)`. The zipper still answers at
+n=40, where a dense statevector (17.6 TB) cannot even exist (Phase 7):
+
+![overlap scaling: zipper vs dense](docs/img/overlap_scaling.png)
+
 ### Quickstart
 
 ```bash

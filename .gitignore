@@ -25,6 +25,8 @@ data/
 *.blaze
 *.blz
 *.png
+# README benchmark figures are deliverables — committed (regenerate: python docs/plots.py)
+!docs/img/*.png
 
 # CUDA / linker build artifacts (nvcc -lib, MSVC import libs), wheels
 *.lib

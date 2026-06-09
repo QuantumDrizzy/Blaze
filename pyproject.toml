@@ -25,6 +25,7 @@ quantum = [
 dev = [
     "pytest>=7.0",
     "ruff>=0.4",
+    "matplotlib>=3.7",   # docs/plots.py — regenerates the README benchmark figures
 ]
 
 [project.scripts]
