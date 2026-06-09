@@ -10,6 +10,7 @@ Public surface is intentionally small and stable for the Rust port.
 
 from .tt import TT, compress, tt_svd
 from .diagnostics import analyze_compressibility, print_compressibility_report
+from .overlap import inner, norm, fidelity, distance, TTIndex
 
 __all__ = [
     "TT",
@@ -17,6 +18,12 @@ __all__ = [
     "tt_svd",
     "analyze_compressibility",
     "print_compressibility_report",
+    # Phase 7 — operations in compressed space (no decompression)
+    "inner",
+    "norm",
+    "fidelity",
+    "distance",
+    "TTIndex",
 ]
 
 # cirq integration is optional (import blaze.cirq to trigger the check)

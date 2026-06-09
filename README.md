@@ -13,8 +13,11 @@ well-chosen single matrix SVD competes at **equal parameters** — "high-order" 
 "smooth" is **not** enough; generic high-entropy data doesn't compress at all
 (`[KNOWN_LIMIT]`). **Blaze is not a general compressor.** Its real, usable value:
 (1) **quantum-state compression + fidelity/sampling**, (2) **honest diagnostics** that
-tell you *whether* TT fits your data, (3) fast TT where it does. Lossy; compared
-against the best matrix SVD at matched params, never against lossless Zstd.
+tell you *whether* TT fits your data, (3) fast TT where it does, (4) **operations in
+the compressed representation** — inner product, fidelity, distance and exact
+similarity search (`TTIndex`) computed on the TT directly, **without decompressing**
+(Phase 7, `O(nχ³)` vs `O(2ⁿ)`; see [`docs/PHASE7-results.md`](docs/PHASE7-results.md)).
+Lossy; compared against the best matrix SVD at matched params, never against lossless Zstd.
 
 Architecture, build sequence, and the honesty contract:
 [`docs/ADR-0001`](docs/ADR-0001-blaze-architecture.md).
