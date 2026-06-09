@@ -16,7 +16,10 @@ well-chosen single matrix SVD competes at **equal parameters** — "high-order" 
 tell you *whether* TT fits your data, (3) fast TT where it does, (4) **operations in
 the compressed representation** — inner product, fidelity, distance and exact
 similarity search (`TTIndex`) computed on the TT directly, **without decompressing**
-(Phase 7, `O(nχ³)` vs `O(2ⁿ)`; see [`docs/PHASE7-results.md`](docs/PHASE7-results.md)).
+(Phase 7, `O(nχ³)` vs `O(2ⁿ)`; see [`docs/PHASE7-results.md`](docs/PHASE7-results.md)),
+(5) **a second, composable quantization stage** — int8/4-bit core codes on top of the
+TT rank truncation, error measured and composed (Phase 8: TFIM paramagnet 77× → **447×**
+at fidelity 0.9999; see [`docs/PHASE8-results.md`](docs/PHASE8-results.md)).
 Lossy; compared against the best matrix SVD at matched params, never against lossless Zstd.
 
 Architecture, build sequence, and the honesty contract:
