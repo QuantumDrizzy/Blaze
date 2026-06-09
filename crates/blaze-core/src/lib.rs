@@ -8,12 +8,15 @@
 
 #![allow(clippy::needless_range_loop)]
 
-use ndarray::{s, Array3, ArrayD};
+use ndarray::{s, Array2, Array3, ArrayD};
 use num_complex::Complex64;
 use std::fs::File;
 use std::io::{self, BufReader, BufWriter, Read, Write};
 use std::path::Path;
 use byteorder::{LittleEndian as LE, ReadBytesExt, WriteBytesExt};
+
+mod quantize;
+pub use quantize::{quantize_c64, quantize_f64, Granularity, QuantizedTT};
 
 /// Supported element types for TT (match Python Phase-1 dtypes policy).
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -566,6 +569,133 @@ pub fn rel_error_c64(tt: &TT<Complex64>, original: &ArrayD<Complex64>) -> f64 {
     let num = diff.iter().map(|&z| z.norm_sqr()).sum::<f64>().sqrt();
     let den = original.iter().map(|&z| z.norm_sqr()).sum::<f64>().sqrt();
     if den == 0.0 { 0.0 } else { num / den }
+}
+
+// ===================== Phase 7b — overlap (MPS zipper) =====================
+// Exact mirror of python/blaze/overlap.py. ⟨a|b⟩ is contracted site by site through
+// the transfer matrix E of shape (r_a, r_b), NEVER decompressing:
+//
+//   E ← [[1]]                                            // (1,1)
+//   for A_k, B_k in zip(a.cores, b.cores):               // A is the bra (conjugated)
+//       T ← E · reshape(B_k, (rbL, d·rbR))               // (aL, d·bR)
+//       E ← conj(reshape(A_k,(aL·d, aR)))ᵀ · reshape(T)  // (aR, bR)
+//   ⟨a|b⟩ ← E[0,0]
+//
+// Cost O(n·d·χ³) vs O(dⁿ) for the dense inner product. Parity gate: equals the dense
+// vdot of the reconstructions to fp tolerance (mirrors the Python Phase-7 gate).
+
+/// ⟨a|b⟩ via the MPS zipper, complex (the bra `a` is conjugated). No decompression.
+pub fn inner_c64(a: &TT<Complex64>, b: &TT<Complex64>) -> Complex64 {
+    assert_eq!(a.shape, b.shape, "overlap requires identical physical shape");
+    assert_eq!(a.cores.len(), b.cores.len(), "overlap requires equal core count");
+    let mut e: Array2<Complex64> = Array2::from_elem((1, 1), Complex64::new(1.0, 0.0));
+    for (ca, cb) in a.cores.iter().zip(b.cores.iter()) {
+        let (ral, d, rar) = (ca.shape()[0], ca.shape()[1], ca.shape()[2]);
+        let (rbl, rbr) = (cb.shape()[0], cb.shape()[2]);
+        // T[aL,d,bR] = Σ_bL E[aL,bL] · B[bL,d,bR]
+        let cb_mat = cb.view().into_shape_with_order((rbl, d * rbr)).unwrap();
+        let t = e.dot(&cb_mat); // (ral, d*rbr)
+        let t_mat = t.into_shape_with_order((ral * d, rbr)).unwrap();
+        // E'[aR,bR] = Σ_{aL,d} conj(A[aL,d,aR]) · T[aL,d,bR]
+        let ca_mat = ca.view().into_shape_with_order((ral * d, rar)).unwrap();
+        let ca_conj_t = ca_mat.mapv(|z| z.conj()).reversed_axes(); // (rar, ral*d)
+        e = ca_conj_t.dot(&t_mat); // (rar, rbr)
+    }
+    e[[0, 0]]
+}
+
+/// ⟨a|b⟩ via the MPS zipper, real. No decompression.
+pub fn inner_f64(a: &TT<f64>, b: &TT<f64>) -> f64 {
+    assert_eq!(a.shape, b.shape, "overlap requires identical physical shape");
+    assert_eq!(a.cores.len(), b.cores.len(), "overlap requires equal core count");
+    let mut e: Array2<f64> = Array2::from_elem((1, 1), 1.0);
+    for (ca, cb) in a.cores.iter().zip(b.cores.iter()) {
+        let (ral, d, rar) = (ca.shape()[0], ca.shape()[1], ca.shape()[2]);
+        let (rbl, rbr) = (cb.shape()[0], cb.shape()[2]);
+        let cb_mat = cb.view().into_shape_with_order((rbl, d * rbr)).unwrap();
+        let t = e.dot(&cb_mat);
+        let t_mat = t.into_shape_with_order((ral * d, rbr)).unwrap();
+        let ca_mat = ca.view().into_shape_with_order((ral * d, rar)).unwrap();
+        e = ca_mat.t().dot(&t_mat); // (rar, rbr)
+    }
+    e[[0, 0]]
+}
+
+/// ‖a‖ = √(Re⟨a|a⟩), on the TT directly.
+pub fn norm_c64(a: &TT<Complex64>) -> f64 {
+    inner_c64(a, a).re.max(0.0).sqrt()
+}
+
+/// State fidelity |⟨a|b⟩|² / (⟨a|a⟩·⟨b|b⟩) ∈ [0,1], normalization-free.
+pub fn fidelity_c64(a: &TT<Complex64>, b: &TT<Complex64>) -> f64 {
+    let iab = inner_c64(a, b);
+    let denom = inner_c64(a, a).re * inner_c64(b, b).re;
+    if denom <= 0.0 { 0.0 } else { iab.norm_sqr() / denom }
+}
+
+/// Frobenius/L2 distance ‖a − b‖ via overlaps: ⟨a|a⟩ + ⟨b|b⟩ − 2 Re⟨a|b⟩.
+pub fn distance_c64(a: &TT<Complex64>, b: &TT<Complex64>) -> f64 {
+    let na2 = inner_c64(a, a).re;
+    let nb2 = inner_c64(b, b).re;
+    let re_ab = inner_c64(a, b).re;
+    (na2 + nb2 - 2.0 * re_ab).max(0.0).sqrt()
+}
+
+#[cfg(test)]
+mod overlap_tests {
+    use super::*;
+
+    // deterministic LCG so tests need no rng dependency
+    fn fill(seed: u64, n: usize, cplx: bool) -> Vec<Complex64> {
+        let mut s = seed;
+        let mut next = || {
+            s = s.wrapping_mul(6364136223846793005).wrapping_add(1442695040888963407);
+            ((s >> 33) as f64 / (1u64 << 31) as f64) - 1.0 // ~[-1,1)
+        };
+        (0..n).map(|_| Complex64::new(next(), if cplx { next() } else { 0.0 })).collect()
+    }
+
+    fn dense_vdot_c64(a: &TT<Complex64>, b: &TT<Complex64>) -> Complex64 {
+        let (ra, rb) = (a.reconstruct_c64(), b.reconstruct_c64());
+        ra.iter().zip(rb.iter()).map(|(x, y)| x.conj() * *y).sum()
+    }
+
+    #[test]
+    fn zipper_equals_dense_vdot_c64() {
+        let n = 4usize;
+        let a = compress_c64(&ArrayD::from_shape_vec(vec![n, n, n], fill(1, n * n * n, true)).unwrap(), Some(6), 1e-12, false);
+        let b = compress_c64(&ArrayD::from_shape_vec(vec![n, n, n], fill(2, n * n * n, true)).unwrap(), Some(6), 1e-12, false);
+        let err = (inner_c64(&a, &b) - dense_vdot_c64(&a, &b)).norm();
+        println!("RUST_INNER_ERR={err:.3e}");
+        assert!(err < 1e-10, "zipper != dense vdot (err={err:.3e})");
+    }
+
+    #[test]
+    fn zipper_equals_dense_f64() {
+        let n = 4usize;
+        let data: Vec<f64> = fill(42, n * n * n, false).iter().map(|z| z.re).collect();
+        let a = compress_f64(&ArrayD::from_shape_vec(vec![n, n, n], data).unwrap(), Some(6), 1e-12, false);
+        let ra = a.reconstruct_f64();
+        let dense: f64 = ra.iter().map(|x| x * x).sum();
+        assert!((inner_f64(&a, &a) - dense).abs() < 1e-10);
+    }
+
+    #[test]
+    fn golden_ghz_anchors() {
+        let s = 1.0 / 2.0_f64.sqrt();
+        let mut d = ArrayD::<Complex64>::zeros(vec![2, 2]);
+        d[[0, 0]] = Complex64::new(s, 0.0);
+        d[[1, 1]] = Complex64::new(s, 0.0);
+        let g = compress_c64(&d, Some(2), 1e-12, false);
+        assert!((inner_c64(&g, &g).re - 1.0).abs() < 1e-12, "⟨GHZ|GHZ⟩ must be 1");
+        assert!((fidelity_c64(&g, &g) - 1.0).abs() < 1e-12);
+        assert!(distance_c64(&g, &g) < 1e-10);
+        // fidelity(GHZ, |00>) = 1/2
+        let mut z = ArrayD::<Complex64>::zeros(vec![2, 2]);
+        z[[0, 0]] = Complex64::new(1.0, 0.0);
+        let zero = compress_c64(&z, Some(2), 1e-12, false);
+        assert!((fidelity_c64(&g, &zero) - 0.5).abs() < 1e-12, "fidelity(GHZ,|00>) must be 1/2");
+    }
 }
 
 #[cfg(all(test, feature = "cuda"))]
