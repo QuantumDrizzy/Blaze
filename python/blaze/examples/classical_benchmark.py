@@ -1,7 +1,7 @@
 """
 python/blaze/examples/classical_benchmark.py
 
-THE critical Fase 1 artifact for claim (b): does TT compression actually *win* on
+THE critical Phase 1 artifact for claim (b): does TT compression actually *win* on
 classical structured data, or does a fair matrix baseline match it?
 
 HONESTY FIX (orchestrator review): the first version compared TT against the WEAKEST
@@ -165,7 +165,7 @@ def run_case(name: str, tensor: np.ndarray, max_ranks: list[int]) -> dict:
 
 
 def main() -> None:
-    print("Blaze Fase 1 — Classical benchmark, FAIR baseline (claim (b))")
+    print("Blaze Phase 1 — Classical benchmark, FAIR baseline (claim (b))")
     print("Baseline = best truncated SVD over ALL mode bipartitions, at matched params.")
     print("The question: does TT beat a well-chosen matrix SVD, and WHERE?\n")
 

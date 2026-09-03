@@ -1,4 +1,4 @@
-"""Minimal roundtrip and golden property tests for Fase 1 TT core.
+"""Minimal roundtrip and golden property tests for Phase 1 TT core.
 
 These run without optional deps.
 """

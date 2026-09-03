@@ -1,7 +1,7 @@
 """
 python/blaze/examples/quantum_compression.py
 
-Cirq integration demo + golden tests for Fase 1.
+Cirq integration demo + golden tests for Phase 1.
 
 This proves the *implementation is correct* using physics guarantees:
 - GHZ: exact bond dimension 2 (independent of n)

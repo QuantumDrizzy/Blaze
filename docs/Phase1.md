@@ -1,4 +1,4 @@
-# Fase 1 — Pure Python Prototype (executable spec + honest classical gate)
+# Phase 1 — Pure Python Prototype (executable spec + honest classical gate)
 
 Status: complete (this directory)
 
@@ -11,7 +11,7 @@ Status: complete (this directory)
 - `examples/quantum_compression.py`: the physics verification layer (does not prove usefulness).
 - CLI stubs + pyproject with optional `[quantum]`.
 - dtype policy respected: f32/f64 + c128 in core; c64 deferred.
-- No custom binary format (Fase 2); cores are numpy arrays (easy .npy export if wanted).
+- No custom binary format (Phase 2); cores are numpy arrays (easy .npy export if wanted).
 - No Rust/CUDA yet — by design.
 
 ## How to run the gates (Antonio review)
@@ -29,7 +29,7 @@ blaze --bench
 blaze --quantum
 ```
 
-## What the classical benchmark must show (pass criteria for Fase 1)
+## What the classical benchmark must show (pass criteria for Phase 1)
 1. The "low-rank TT ground truth + noise" case recovers with very low error at low max_rank (sanity + impl correct).
 2. The smooth field and hyperspectral-like cases report their effective ranks + decay summary. If median effective rank stays << dimension of unfoldings, the data class has hope.
 3. Direct comparison vs single-unfolding matrix SVD (params + achieved error). TT should be competitive or better on the structured cases; on random it should not win (expected).
@@ -39,9 +39,9 @@ If (2)+(3) look promising on the hyperspectral-like and field cases, we have a s
 
 ## Next (after review of these numbers)
 - Fix any bugs found in review.
-- Write ADR / update architecture.md with the measured data from Fase 1.
-- Then Fase 2: Rust core (faer CPU ref) + I/O + CLI, still no CUDA.
-- Only after classical claim (b) survives Fase 1+2 do we touch kernels.
+- Write ADR / update architecture.md with the measured data from Phase 1.
+- Then Phase 2: Rust core (faer CPU ref) + I/O + CLI, still no CUDA.
+- Only after classical claim (b) survives Phase 1+2 do we touch kernels.
 
 ## Known limits in this prototype
 - TT-SVD materializes the full tensor (as designed).

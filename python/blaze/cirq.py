@@ -1,7 +1,7 @@
 """
 blaze.cirq
 
-Serious Cirq integration for Fase 1.
+Serious Cirq integration for Phase 1.
 
 Purpose:
 - Quantum states (statevectors) are the *canonical* example of high-dimensional

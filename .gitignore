@@ -34,7 +34,7 @@ data/
 *.obj
 *.whl
 
-# Allow small generated artifacts for Fase 1 examples/demos (committed only if tiny & illustrative)
+# Allow small generated artifacts for Phase 1 examples/demos (committed only if tiny & illustrative)
 !python/blaze/examples/output/.gitkeep
 !examples/output/.gitkeep
 # Large generated data still ignored even here

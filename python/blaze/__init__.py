@@ -2,7 +2,7 @@
 blaze
 High-dimensional data compression via Tensor Train (TT/MPS).
 
-Fase 1 (Python prototype): executable specification of the final API.
+Phase 1 (Python prototype): executable specification of the final API.
 See docs/architecture.md (to be updated) and examples/.
 
 Public surface is intentionally small and stable for the Rust port.
@@ -47,5 +47,5 @@ try:
 except Exception:  # pragma: no cover
     pass
 
-# Version for Fase 1
+# Version for Phase 1
 __version__ = "0.1.0.dev"

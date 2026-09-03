@@ -5,11 +5,11 @@ build-backend = "setuptools.build_meta"
 [project]
 name = "blaze"
 version = "0.1.0"
-description = "High-dimensional tensor compression via Tensor Train / MPS, with CUDA acceleration and Cirq integration (Fase 1: pure Python prototype)"
+description = "High-dimensional tensor compression via Tensor Train / MPS, with CUDA acceleration and Cirq integration (Phase 1: pure Python prototype)"
 readme = "README.md"
 requires-python = ">=3.10"
 license = {file = "LICENSE"}
-authors = [{name = "Blaze Team"}]
+authors = [{name = "Antonio Zambudio Rodriguez"}]
 dependencies = [
     "numpy>=1.24",
     "scipy>=1.10",
@@ -29,7 +29,7 @@ dev = [
 ]
 
 [project.scripts]
-# CLI will come in later phases; placeholder for Fase 1
+# CLI will come in later phases; placeholder for Phase 1
 blaze = "blaze.cli:main"
 
 [tool.setuptools.packages.find]

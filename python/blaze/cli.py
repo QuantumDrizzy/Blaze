@@ -1,4 +1,4 @@
-"""Minimal CLI for Fase 1 (placeholder — real CLI in later phases)."""
+"""Minimal CLI for Phase 1 (placeholder — real CLI in later phases)."""
 
 import argparse
 import sys
@@ -7,14 +7,14 @@ from blaze import __version__
 
 
 def main(argv: list[str] | None = None) -> int:
-    parser = argparse.ArgumentParser(prog="blaze", description="Blaze Fase 1 prototype")
+    parser = argparse.ArgumentParser(prog="blaze", description="Blaze Phase 1 prototype")
     parser.add_argument("--version", action="store_true", help="print version")
     parser.add_argument("--bench", action="store_true", help="run classical benchmark")
     parser.add_argument("--quantum", action="store_true", help="run quantum golden demo (needs cirq)")
     args = parser.parse_args(argv)
 
     if args.version:
-        print(f"blaze {__version__} (Fase 1 Python prototype)")
+        print(f"blaze {__version__} (Phase 1 Python prototype)")
         return 0
 
     if args.bench:

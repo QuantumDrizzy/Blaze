@@ -2,7 +2,7 @@
 blaze.tt
 Tensor Train (TT / MPS) compression via TT-SVD.
 
-Fase 1 pure-Python prototype. Mirrors the planned Rust/CUDA API surface.
+Phase 1 pure-Python prototype. Mirrors the planned Rust/CUDA API surface.
 
 Dtypes: float32, float64, complex128 (c64 deferred per design).
 """
@@ -21,7 +21,7 @@ def _as_float_or_complex(arr: np.ndarray) -> np.ndarray:
     if arr.dtype == np.float32 or arr.dtype == np.float64:
         return arr
     if arr.dtype == np.complex64:
-        # Defer c64: upcast for stability in Fase 1
+        # Defer c64: upcast for stability in Phase 1
         return arr.astype(np.complex128)
     if arr.dtype == np.complex128:
         return arr
@@ -68,7 +68,7 @@ class TT:
     def reconstruct(self) -> np.ndarray:
         """Contract the TT back to a dense tensor of self.shape.
 
-        For Fase 1 (small tensors) this materializes the full array.
+        For Phase 1 (small tensors) this materializes the full array.
         """
         if not self.cores:
             return np.zeros(self.shape, dtype=self.dtype())
@@ -162,7 +162,7 @@ def tt_svd(
 ) -> tuple[list[np.ndarray], list[np.ndarray]]:
     """Compute a TT decomposition via successive SVD + truncation (TT-SVD).
 
-    This is the workhorse for Fase 1. The algorithm is deterministic and the
+    This is the workhorse for Phase 1. The algorithm is deterministic and the
     truncation error is controlled per unfolding (Frobenius energy on the matricization).
 
     Returns:
