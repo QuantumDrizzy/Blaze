@@ -9,7 +9,8 @@ members = [
 version = "0.2.0"
 edition = "2021"
 authors = ["Blaze Team"]
-license = "MIT"
+license-file = "LICENSE"
+publish = false
 repository = "https://example.com/blaze"  # placeholder
 rust-version = "1.80"
 
