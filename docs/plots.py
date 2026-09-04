@@ -34,9 +34,11 @@ OUT = Path(__file__).resolve().parent / "img"
 OUT.mkdir(parents=True, exist_ok=True)
 
 # ---- dark cyberpunk palette (brand-consistent with the CYBERDECK dashboard) ----
-BG, PANEL = "#0a0c12", "#0e121c"
-CYAN, MAGENTA, AMBER = "#00e6c8", "#ff46a0", "#ffb446"
-TEXT, MUTED, GRID = "#c8d6e0", "#7a8796", "#1b2434"
+# Light theme: these figures are embedded in the README and in PDFs, both read
+# on white. Accents are dark enough to stay legible there and in greyscale.
+BG, PANEL = "#ffffff", "#f6f7f9"
+CYAN, MAGENTA, AMBER = "#0b6ea8", "#a3327d", "#d95f02"
+TEXT, MUTED, GRID = "#1a1d21", "#5b6672", "#d8dce0"
 FOOTER = "measured on RTX 5060 Ti (sm_120), CUDA 13 · blaze · 2026-06-09"
 
 
@@ -46,7 +48,7 @@ def _style():
         "savefig.edgecolor": BG, "axes.edgecolor": GRID, "axes.labelcolor": TEXT,
         "text.color": TEXT, "xtick.color": MUTED, "ytick.color": MUTED,
         "grid.color": GRID, "axes.grid": True, "grid.alpha": 0.5, "grid.linewidth": 0.7,
-        "axes.titlecolor": CYAN, "axes.titlesize": 13, "axes.titleweight": "bold",
+        "axes.titlecolor": TEXT, "axes.titlesize": 13, "axes.titleweight": "bold",
         "font.size": 11, "font.family": "DejaVu Sans Mono", "figure.dpi": 140,
         "axes.spines.top": False, "axes.spines.right": False,
     })
@@ -141,7 +143,7 @@ def fig_fidelity_matrix():
         for j in range(len(HS)):
             M[i, j] = fidelity(tts[i], tts[j])
 
-    cmap = LinearSegmentedColormap.from_list("cyb", [BG, "#13324a", CYAN])
+    cmap = LinearSegmentedColormap.from_list("cyb", [BG, "#9ecae1", CYAN])
     fig, ax = plt.subplots(figsize=(6.6, 5.6))
     im = ax.imshow(M, cmap=cmap, vmin=0, vmax=1, origin="lower")
     ax.set_xticks(range(len(HS))); ax.set_yticks(range(len(HS)))
