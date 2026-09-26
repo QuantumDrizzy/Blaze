@@ -63,6 +63,12 @@ TT rank = Schmidt rank, honest decline). The Haar-random control does **not** co
 
 ## Benchmarks, visualized
 
+**The card.** Compression ratio against the error that bought it; every bar is a number
+already measured in this repository or in QuBLAR, the random control included
+(`python docs/bench_card.py`):
+
+![Blaze benchmark card](docs/img/blaze_bench_card.png)
+
 Every figure is regenerated **live** from real runs — `python docs/plots.py` (no
 hardcoded numbers: TFIM states via quimb, compressed / quantized / overlapped by
 blaze itself), on the RTX 5060 Ti (sm_120).
