@@ -82,6 +82,17 @@ A trio like that needs two things decided, before any code:
 2. **a hand-off protocol**: files today, which already work for QuBLAR → Blaze; shared memory
    with a queue later.
 
+## Where Blaze sits: motor, compiler, compressor, QGPU
+
+Blaze is the **compressor** in a four-piece stack: QuBLAR (motor), LYTH (compiler), Blaze
+(compressor), MTLB (QGPU). The stack is defined in MTLB ADR-0002. Two facts tie Blaze to it:
+- Blaze's int8 cores (Phase 8) are the operand format of MTLB's `ZIPPER2` instruction.
+- Blaze's verdict is what lets QuBLAR fall back instead of failing: QuBLAR uses Blaze output
+  only on *compressed* within its tolerance.
+
+"Adaptive", as a working agreement: an instruction like "use Blaze here" needs no further
+explanation. Read the goal, run INGEST → DECOMPOSE → EMIT, return the verdict.
+
 ## Not claimed
 
 - No new compression ratio. Every number above is already measured in this repository.
