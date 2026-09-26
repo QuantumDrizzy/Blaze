@@ -47,6 +47,13 @@ Honest baselines, documented `[KNOWN_LIMIT]`s, no overclaim — the contract of
 | 6 | Rust CLI + `.blz` persistence | `blaze compress` / `reconstruct` end-to-end, c64 verified on disk | [blz-format](docs/blz-format.md) |
 | 7 | Ops in compressed space | `inner`/`fidelity`/`distance`/`TTIndex` via the MPS zipper, **exact to 1e-15**, `O(nχ³)`; runs at **n=40** (dense 2⁴⁰ = 17.6 TB, impossible) in **3.6 ms**; TFIM search recovers the **quantum phase transition** | [PHASE7](docs/PHASE7-results.md) |
 | 8 | Core quantization | int8/4-bit codes on top of TT, error **composed** and measured; TFIM paramagnet **76.6× → 447×** at fidelity **0.99994** (int8), up to **705×** at 4-bit | [PHASE8](docs/PHASE8-results.md) |
+| 9 | Search over quantized cores | **Python validated** (9 tests, `tests/test_phase9_quantized_search.py`); the native quantized-overlap kernel is **designed, not built** ([ADR-0003](docs/ADR-0003-quantized-overlap-kernel.md)) | — |
+
+**In use: QuBLAR's ghost bits.** QuBLAR, an Ising photonic engine, enumerates the exact
+posterior of the 20 most likely hidden voxels (2²⁰ branches) and hands the 20-way tensor to
+Blaze. It compresses to TT rank 1–2 (about 26,000×), and the marginals are read from the TT
+to 7 × 10⁻⁷, or 2.7 × 10⁻³ with int8 cores. It compresses that well because the posterior
+is sharp, and Blaze's diagnostic says exactly that.
 
 **Flagship validation — real physics ([SUBSTRATE](docs/SUBSTRATE-validation.md)).**
 TFIM ground states (n=16) compress **19× (critical) → 77× (paramagnet)** losslessly to
