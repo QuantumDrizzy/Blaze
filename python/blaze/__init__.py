@@ -9,6 +9,8 @@ Public surface is intentionally small and stable for the Rust port.
 """
 
 from .tt import TT, compress, tt_svd
+from .verdict import Kind, Verdict, verdict
+from .blz2 import read_verdict, verify_verdict, write_verdict
 from .diagnostics import analyze_compressibility, print_compressibility_report
 from .overlap import inner, norm, fidelity, distance, TTIndex
 from .quantize import QuantizedTT, quantize_tt
@@ -23,6 +25,12 @@ __all__ = [
     "TT",
     "compress",
     "tt_svd",
+    "Kind",
+    "Verdict",
+    "verdict",
+    "read_verdict",
+    "verify_verdict",
+    "write_verdict",
     "analyze_compressibility",
     "print_compressibility_report",
     # Phase 7 — operations in compressed space (no decompression)

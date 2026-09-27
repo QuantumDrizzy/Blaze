@@ -31,6 +31,7 @@ num-complex.workspace = true
 ndarray-npy.workspace = true
 nalgebra.workspace = true
 byteorder.workspace = true
+sha2.workspace = true
 clap.workspace = true
 approx.workspace = true
 

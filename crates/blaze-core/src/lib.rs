@@ -16,7 +16,14 @@ use std::path::Path;
 use byteorder::{LittleEndian as LE, ReadBytesExt, WriteBytesExt};
 
 mod quantize;
+pub mod verdict;
+pub mod blz2;
 pub use quantize::{quantize_c64, quantize_f64, Granularity, QuantizedTT};
+pub use verdict::{verdict_c64, verdict_f64, Cut, Kind, Verdict, VerdictCores};
+pub use blz2::{
+    check_against_fresh, read_verdict, verify_verdict_c64, verify_verdict_f64, write_verdict,
+    BlzError, HASH_LEN, MAGIC as BLZ2_MAGIC, VERSION as BLZ2_VERSION,
+};
 
 /// Supported element types for TT (match Python Phase-1 dtypes policy).
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]

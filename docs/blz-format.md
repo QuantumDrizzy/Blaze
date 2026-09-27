@@ -61,3 +61,14 @@ For a (2,3) matrix TT with ranks [1,2,1]:
 Roundtrip with the Python reference (once .blz reader added to Python) + CLI `compress` + `reconstruct` must give rel_error matching in-memory.
 
 This format is intentionally simple and stable for v0.2.
+
+## BLZ2
+
+Magic `BLZ2`, version 1. Not a revision of the bytes above: a BLZ1 reader
+rejects it on the magic. The body is the verdict certificate (kind, budget,
+bounds, per-cut tails, shape) and, only when the kind is `compressed`, the
+cores. The last 32 bytes are the SHA-256 of everything before them. A reader
+recomputes that hash and rejects the file on a mismatch. Given the original
+tensor, it also recomputes `verdict` and rejects a kind or a core count that
+moved. Declined and undecided store no cores. Written by `blaze.blz2`.
+

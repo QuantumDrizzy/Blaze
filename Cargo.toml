@@ -30,6 +30,7 @@ num-complex = { version = "0.4", features = ["serde"] }
 ndarray-npy = { version = "0.9", features = ["num-complex-0_4"] }
 nalgebra = { version = "0.33", features = ["std"] }
 byteorder = "1.5"
+sha2 = "0.10"
 
 # CLI
 clap = { version = "4", features = ["derive"] }

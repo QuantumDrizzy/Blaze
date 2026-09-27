@@ -16,6 +16,44 @@ import numpy as np
 from scipy.linalg import svd
 
 
+def unfolding_budget(rel_tol: float, ndim: int) -> float:
+    """Per-unfolding energy budget. One formula for the cores and the verdict."""
+    return rel_tol / max(1.0, float(np.sqrt(ndim - 1)))
+
+
+def truncation_rank(
+    singular_values: np.ndarray,
+    eps: float,
+    max_rank: Optional[int],
+) -> tuple[int, int, bool]:
+    """Rank kept on one unfolding.
+
+    Returns ``(kept, tol_rank, cap_bound)``. ``tol_rank`` is what the energy
+    budget asks for. ``cap_bound`` is true when ``max_rank`` cuts below that.
+    """
+    spectrum = np.asarray(singular_values)
+    length = int(spectrum.shape[0])
+    if length == 0:
+        return 0, 0, False
+    energy = spectrum.astype(np.float64) ** 2
+    total = float(energy.sum())
+    if total > 0.0 and eps > 0.0:
+        cumulative = np.cumsum(energy) / total
+        index = int(np.searchsorted(cumulative, 1.0 - eps * eps))
+        tol_rank = min(index + 1, length)
+    else:
+        tol_rank = length
+    kept = tol_rank
+    cap_bound = False
+    if max_rank is not None:
+        cap = int(max_rank)
+        cap_bound = tol_rank > cap
+        kept = min(kept, cap)
+    kept = max(kept, 1)
+    kept = min(kept, length)
+    return kept, tol_rank, cap_bound
+
+
 def _as_float_or_complex(arr: np.ndarray) -> np.ndarray:
     """Ensure a supported dtype. We keep user's precision when possible."""
     if arr.dtype == np.float32 or arr.dtype == np.float64:
@@ -188,7 +226,7 @@ def tt_svd(
 
     # Global energy for optional global tol interpretation (we still do per-step)
     # For TT-SVD the per-matricization relative tail is the practical control.
-    eps = rel_tol / max(1.0, np.sqrt(ndim - 1))  # distribute budget roughly
+    eps = unfolding_budget(rel_tol, ndim)
 
     for i in range(ndim - 1):
         d_i = shape[i]
@@ -205,24 +243,12 @@ def tt_svd(
         # Record full spectrum for diagnostics (the key for claim (b) honesty)
         singular_values.append(S.copy())
 
-        # Truncation: energy on this unfolding + max_rank cap
-        s2 = S.astype(np.float64) ** 2
-        total_s2 = s2.sum()
-        if total_s2 > 0 and eps > 0:
-            cum = np.cumsum(s2) / total_s2
-            # first index where we have captured enough
-            idx = int(np.searchsorted(cum, 1.0 - eps * eps))
-            r_tol = min(idx + 1, len(S))
-        else:
-            r_tol = len(S)
-
-        r = r_tol
-        if max_rank is not None:
-            r = min(r, int(max_rank))
-        r = max(r, 1)
-        r = min(r, len(S))
+        # Truncation: the same rank the verdict reads back from this spectrum.
+        r, _, _ = truncation_rank(S, eps, max_rank)
 
         if verbose:
+            s2 = S.astype(np.float64) ** 2
+            total_s2 = float(s2.sum())
             kept_energy = (s2[:r].sum() / total_s2) if total_s2 > 0 else 1.0
             print(f"[tt_svd] mode {i}: rank {r}/{len(S)}  "
                   f"kept_energy={kept_energy:.6e}  max_sigma={S[0]:.3e}")
