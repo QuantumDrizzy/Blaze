@@ -15,7 +15,7 @@ import numpy as np
 
 from blaze import compress, quantize_tt
 
-UNIBIT = Path(r"C:\Users\Drizzy\Desktop\Unibit")
+UNIBIT = Path(r"C:\Users\Drizzy\Desktop\Labare")   # the ISA repository: Labare (was MTLB)
 LIM = 127.0
 
 
