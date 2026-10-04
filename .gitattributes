@@ -1,0 +1,12 @@
+# GitHub Linguist Language Detection Overrides
+# https://github.com/github-linguist/linguist/blob/master/docs/overrides.md
+
+# 1. Exclude test suites, test fixtures, and benchmarks from language stats
+tests/** linguist-detectable=false
+docs/** linguist-documentation
+*.npy linguist-detectable=false
+*.blz linguist-detectable=false
+
+# 2. Mark Python bindings, Cirq bridge, and examples as vendored
+# This ensures GitHub reflects Blaze's true bare-metal engine (Rust + CUDA)
+python/** linguist-vendored
