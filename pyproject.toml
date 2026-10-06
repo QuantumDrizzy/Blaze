@@ -8,7 +8,7 @@ version = "0.1.0"
 description = "High-dimensional tensor compression via Tensor Train / MPS, with CUDA acceleration and Cirq integration (Phase 1: pure Python prototype)"
 readme = "README.md"
 requires-python = ">=3.10"
-license = {file = "LICENSE"}
+license = {text = "MIT OR Apache-2.0"}
 authors = [{name = "Antonio Zambudio Rodriguez"}]
 dependencies = [
     "numpy>=1.24",

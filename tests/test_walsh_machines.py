@@ -19,10 +19,12 @@ import sys
 from pathlib import Path
 
 import numpy as np
+import pytest
 
 from blaze import Kind, compress, verdict
 
-DESKTOP = Path(__file__).resolve().parents[4]
+# The sibling checkouts (QuBLAR, LYTH): $BLAZE_ECOSYSTEM, else the folder that holds them here.
+DESKTOP = Path(os.environ.get("BLAZE_ECOSYSTEM", Path(__file__).resolve().parents[4]))
 ROI = DESKTOP / "PR0JECTS" / "RESEARCH" / "QuBLAR" / "build" / "ising_out_roi.txt"
 LYTH = DESKTOP / "LYTH"
 BRANCHES = DESKTOP / "PR0JECTS" / "RESEARCH" / "QuBLAR" / "tools" / "branches_blaze.py"
@@ -161,6 +163,7 @@ def _machine_cores(cores, got, widths):
     return built
 
 
+@pytest.mark.ecosystem
 def test_correlated_bits_stay_at_1e_12_in_float64_and_the_machines_match_f32(tmp_path: Path):
     p = np.zeros((2,) * 6, dtype=np.float64)
     p[(0, 0, 0, 0, 0, 0)] = 0.5
@@ -180,6 +183,7 @@ def test_correlated_bits_stay_at_1e_12_in_float64_and_the_machines_match_f32(tmp
     # The f32 spectrum on this fixture is not the 1e-12 bar. That one is the float64 check above.
 
 
+@pytest.mark.ecosystem
 def test_roi_hadamard_stays_inside_the_verdict_budget(tmp_path: Path):
     assert ROI.is_file(), "missing QuBLAR build/ising_out_roi.txt"
     roi = _load(BRANCHES, "branches_blaze_walsh")

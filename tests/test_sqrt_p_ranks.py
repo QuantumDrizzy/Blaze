@@ -9,15 +9,18 @@ not run. The tolerance is the one the ghost-bit gate already used.
 
 from __future__ import annotations
 
+import os
 import importlib.util
 import sys
 from pathlib import Path
 
 import numpy as np
+import pytest
 
 from blaze import Kind, verdict
 
-DESKTOP = Path(__file__).resolve().parents[4]
+# The sibling checkouts (QuBLAR, LYTH): $BLAZE_ECOSYSTEM, else the folder that holds them here.
+DESKTOP = Path(os.environ.get("BLAZE_ECOSYSTEM", Path(__file__).resolve().parents[4]))
 ROI = DESKTOP / "PR0JECTS" / "RESEARCH" / "QuBLAR" / "build" / "ising_out_roi.txt"
 BRANCHES = DESKTOP / "PR0JECTS" / "RESEARCH" / "QuBLAR" / "tools" / "branches_blaze.py"
 REL_TOL = 1e-6
@@ -58,6 +61,7 @@ def test_equal_nonzero_weights_keep_the_same_bonds():
     assert state.tt.ranks == posterior.tt.ranks
 
 
+@pytest.mark.ecosystem
 def test_roi_sqrt_p_is_a_different_train():
     assert ROI.is_file(), "missing QuBLAR build/ising_out_roi.txt"
     roi = _load(BRANCHES, "branches_blaze_sqrt")

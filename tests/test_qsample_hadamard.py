@@ -10,15 +10,18 @@ register, so the machine does not run.
 
 from __future__ import annotations
 
+import os
 import importlib.util
 import sys
 from pathlib import Path
 
 import numpy as np
+import pytest
 
 from blaze import Kind, verdict
 
-DESKTOP = Path(__file__).resolve().parents[4]
+# The sibling checkouts (QuBLAR, LYTH): $BLAZE_ECOSYSTEM, else the folder that holds them here.
+DESKTOP = Path(os.environ.get("BLAZE_ECOSYSTEM", Path(__file__).resolve().parents[4]))
 ROI = DESKTOP / "PR0JECTS" / "RESEARCH" / "QuBLAR" / "build" / "ising_out_roi.txt"
 BRANCHES = DESKTOP / "PR0JECTS" / "RESEARCH" / "QuBLAR" / "tools" / "branches_blaze.py"
 REL_TOL = 1e-6
@@ -50,6 +53,7 @@ def _fits_one_register(cores) -> bool:
     return True
 
 
+@pytest.mark.ecosystem
 def test_qsample_hadamard_keeps_its_bonds(tmp_path: Path):
     psi = _qsample()
     answer = verdict(psi, rel_tol=FIXTURE_TOL)
@@ -71,6 +75,7 @@ def test_qsample_hadamard_keeps_its_bonds(tmp_path: Path):
     assert [int(core.shape[2]) for core in machine] == bonds
 
 
+@pytest.mark.ecosystem
 def test_roi_qsample_does_not_fit_the_register():
     assert ROI.is_file(), "missing QuBLAR build/ising_out_roi.txt"
     roi = _load(BRANCHES, "branches_blaze_qsample_h")

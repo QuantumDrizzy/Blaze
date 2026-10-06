@@ -123,3 +123,9 @@ print(blaze.fidelity(tt, q.dequantize()))                         # ~1.0, no dec
 Phase 7–8 are the NumPy reference; their Rust port + CUDA batched overlap are the
 documented next steps (ADR-0002).
 
+## License
+
+Licensed under either of [Apache License, Version 2.0](LICENSE-APACHE) or [MIT license](LICENSE-MIT),
+at your option. Unless you explicitly state otherwise, any contribution intentionally submitted for
+inclusion in Blaze by you, as defined in the Apache-2.0 license, shall be dual licensed as above,
+without any additional terms or conditions.

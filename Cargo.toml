@@ -8,10 +8,10 @@ members = [
 [workspace.package]
 version = "0.2.0"
 edition = "2021"
-authors = ["Blaze Team"]
-license-file = "LICENSE"
+authors = ["Antonio Zambudio Rodriguez"]
+license = "MIT OR Apache-2.0"
 publish = false
-repository = "https://example.com/blaze"  # placeholder
+repository = "https://github.com/QuantumDrizzy/Blaze"
 rust-version = "1.80"
 
 [workspace.dependencies]

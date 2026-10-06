@@ -16,10 +16,12 @@ import sys
 from pathlib import Path
 
 import numpy as np
+import pytest
 
 from blaze import Kind, quantize_tt, verdict
 
-DESKTOP = Path(__file__).resolve().parents[4]
+# The sibling checkouts (QuBLAR, LYTH): $BLAZE_ECOSYSTEM, else the folder that holds them here.
+DESKTOP = Path(os.environ.get("BLAZE_ECOSYSTEM", Path(__file__).resolve().parents[4]))
 ROI = DESKTOP / "PR0JECTS" / "RESEARCH" / "QuBLAR" / "build" / "ising_out_roi.txt"
 LYTH = DESKTOP / "LYTH"
 QGPU = Path(__file__).resolve().parent / "test_qgpu_zipper.py"
@@ -173,6 +175,7 @@ def test_bond_above_chi2_does_not_run():
     assert _steps(answer) is None
 
 
+@pytest.mark.ecosystem
 def test_roi_marginals_match_on_both_machines(tmp_path: Path):
     assert ROI.is_file(), "missing QuBLAR build/ising_out_roi.txt"
     roi = _load(BRANCHES, "branches_blaze")

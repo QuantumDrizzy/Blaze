@@ -18,6 +18,7 @@ import sys
 from pathlib import Path
 
 import numpy as np
+import pytest
 
 from blaze import Kind, fidelity, quantize_tt, verdict
 
@@ -41,6 +42,7 @@ def _dense_fidelity(amplitudes: np.ndarray, tt) -> float:
     return float(numer / denom)
 
 
+@pytest.mark.ecosystem
 def test_six_bit_qsample_overlaps_on_both_machines(tmp_path: Path):
     p = np.zeros((2,) * 6, dtype=np.float64)
     p[(0, 0, 0, 0, 0, 0)] = 0.5

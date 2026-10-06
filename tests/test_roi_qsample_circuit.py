@@ -12,6 +12,7 @@ word does not run.
 
 from __future__ import annotations
 
+import os
 import importlib.util
 import sys
 from pathlib import Path
@@ -24,7 +25,8 @@ pytest.importorskip("cirq")
 from blaze import Kind, verdict  # noqa: E402
 from blaze.cirq import verify_mps_circuit  # noqa: E402
 
-DESKTOP = Path(__file__).resolve().parents[4]
+# The sibling checkouts (QuBLAR, LYTH): $BLAZE_ECOSYSTEM, else the folder that holds them here.
+DESKTOP = Path(os.environ.get("BLAZE_ECOSYSTEM", Path(__file__).resolve().parents[4]))
 ROI = DESKTOP / "PR0JECTS" / "RESEARCH" / "QuBLAR" / "build" / "ising_out_roi.txt"
 BRANCHES = DESKTOP / "PR0JECTS" / "RESEARCH" / "QuBLAR" / "tools" / "branches_blaze.py"
 REL_TOL = 1e-6
@@ -41,6 +43,7 @@ def _load(path: Path, name: str):
     return module
 
 
+@pytest.mark.ecosystem
 def test_roi_qsample_is_prepared_off_the_word():
     assert ROI.is_file(), "missing QuBLAR build/ising_out_roi.txt"
     roi = _load(BRANCHES, "branches_blaze_roi_circuit")

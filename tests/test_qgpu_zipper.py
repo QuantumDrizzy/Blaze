@@ -7,15 +7,18 @@ parts. The emulator's E[0][0] must match the same contraction in float32.
 
 from __future__ import annotations
 
+import os
 import struct
 import subprocess
 from pathlib import Path
 
 import numpy as np
+import pytest
 
 from blaze import compress, quantize_tt
 
-UNIBIT = Path(r"C:\Users\Drizzy\Desktop\Labare")   # the ISA repository: Labare (was MTLB)
+# The ISA repository (Labare, was MTLB): $LABARE_DIR, else a Labare checkout on the Desktop.
+UNIBIT = Path(os.environ.get("LABARE_DIR", Path.home() / "Desktop" / "Labare"))
 LIM = 127.0
 
 
@@ -183,6 +186,8 @@ def _program(cores: list[list[int]]) -> str:
 
 
 def test_ghz_cores_contract_on_the_emulator(tmp_path: Path):
+    if not (UNIBIT / "Cargo.toml").is_file():
+        pytest.skip(f"Labare (the Unibit emulator) not found at {UNIBIT}; set LABARE_DIR")
     tensor = _ghz(4)
     tt = compress(tensor, max_rank=2, rel_tol=1e-12)
     assert max(tt.ranks) <= 2

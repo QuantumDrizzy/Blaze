@@ -16,6 +16,7 @@ import sys
 from pathlib import Path
 
 import numpy as np
+import pytest
 
 from blaze import Kind, verdict
 
@@ -82,6 +83,7 @@ def _apply_or_refuse(p0: np.ndarray, p1: np.ndarray, tmp_path: Path):
     return _closed_or_none(q0, q1, got["q0i"], got["q1i"], p0, p1)
 
 
+@pytest.mark.ecosystem
 def test_qsample_round_trip_through_the_qpu(tmp_path: Path):
     psi = _qsample()
     outbound = verdict(psi, rel_tol=FIXTURE_TOL)
